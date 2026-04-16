@@ -20,6 +20,7 @@ if (!gotLock) {
     if (url) applyDeepLink(url)
     if (mainWin) {
       if (mainWin.isMinimized()) mainWin.restore()
+      mainWin.show()
       mainWin.focus()
     }
   })
@@ -81,11 +82,14 @@ function createWindow(): BrowserWindow {
 app.setAsDefaultProtocolClient(PROTOCOL)
 
 app.whenReady().then(() => {
-  createWindow()
+  const win = createWindow()
 
   // Cold launch with deep link (Linux / Windows pass URL in argv)
   const url = findProtocolUrl(process.argv)
-  if (url) applyDeepLink(url)
+  if (url) {
+    // Wait for renderer to finish loading before sending the IPC message
+    win.webContents.once('did-finish-load', () => applyDeepLink(url))
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -94,7 +98,15 @@ app.whenReady().then(() => {
 
 // macOS delivers deep links via open-url (app may already be running)
 app.on('open-url', (_event, url) => {
-  applyDeepLink(url)
+  if (mainWin) {
+    mainWin.show()
+    mainWin.focus()
+    applyDeepLink(url)
+  } else {
+    app.once('browser-window-created', (_, win) => {
+      win.webContents.once('did-finish-load', () => applyDeepLink(url))
+    })
+  }
 })
 
 app.on('window-all-closed', () => {
