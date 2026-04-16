@@ -22,5 +22,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (_event: Electron.IpcRendererEvent, pinned: boolean): void => cb(pinned)
     ipcRenderer.on('window:alwaysOnTopChanged', listener)
     return () => ipcRenderer.removeListener('window:alwaysOnTopChanged', listener)
+  },
+
+  onDeepLink: (cb: (config: { odooUrl: string; dbName: string; username: string; apiKey: string }) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, config: { odooUrl: string; dbName: string; username: string; apiKey: string }): void => cb(config)
+    ipcRenderer.on('deeplink:config', listener)
+    return () => ipcRenderer.removeListener('deeplink:config', listener)
   }
 })

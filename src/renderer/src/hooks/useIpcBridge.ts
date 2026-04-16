@@ -69,10 +69,17 @@ export function useIpcBridge(): void {
     const cleanupPin = window.electronAPI.onAlwaysOnTopChanged(
       (pinned) => useTaskStore.getState().setPinned(pinned)
     )
+    const cleanupDeepLink = window.electronAPI.onDeepLink((config) => {
+      console.log('[useIpcBridge] deeplink:config received, applying settings...')
+      useTaskStore.getState().setSettings(config)
+      clearSession()
+      runRefresh()
+    })
 
     return () => {
       cleanupRefresh()
       cleanupPin()
+      cleanupDeepLink()
     }
   }, [])
 

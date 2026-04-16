@@ -5,7 +5,52 @@ import { registerIpcHandlers } from './ipcHandlers'
 import { startWebhookServer } from './webhook'
 import { createStore } from './store'
 
+const PROTOCOL = 'odootodo'
 const store = createStore()
+let mainWin: BrowserWindow | null = null
+
+// Enforce single instance — required for deep link handling when app is already open
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  // Second instance was launched (e.g. user clicked deep link while app was running)
+  app.on('second-instance', (_event, argv) => {
+    const url = findProtocolUrl(argv)
+    if (url) applyDeepLink(url)
+    if (mainWin) {
+      if (mainWin.isMinimized()) mainWin.restore()
+      mainWin.focus()
+    }
+  })
+}
+
+function findProtocolUrl(argv: string[]): string | null {
+  return argv.find((arg) => arg.startsWith(`${PROTOCOL}://`)) ?? null
+}
+
+function applyDeepLink(url: string): void {
+  try {
+    const parsed = new URL(url)
+    if (parsed.hostname !== 'setup') return
+
+    const odooUrl  = parsed.searchParams.get('url')
+    const dbName   = parsed.searchParams.get('db')
+    const username = parsed.searchParams.get('user')
+    const apiKey   = parsed.searchParams.get('key')
+
+    if (!odooUrl || !dbName || !username || !apiKey) return
+
+    store.set('odooUrl',  odooUrl)
+    store.set('dbName',   dbName)
+    store.set('username', username)
+    store.set('apiKey',   apiKey)
+
+    mainWin?.webContents.send('deeplink:config', { odooUrl, dbName, username, apiKey })
+  } catch {
+    // malformed URL — ignore
+  }
+}
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -16,9 +61,10 @@ function createWindow(): BrowserWindow {
     }
   })
 
+  mainWin = win
   registerIpcHandlers(store, win)
 
-  const port = (store.get('webhookPort') as number | undefined) ?? 3001
+  const port    = (store.get('webhookPort')    as number  | undefined) ?? 3001
   const bindAll = (store.get('webhookBindAll') as boolean | undefined) ?? false
   startWebhookServer(port, bindAll, win)
 
@@ -31,11 +77,24 @@ function createWindow(): BrowserWindow {
   return win
 }
 
+// Register protocol before app is ready (required on Windows)
+app.setAsDefaultProtocolClient(PROTOCOL)
+
 app.whenReady().then(() => {
   createWindow()
+
+  // Cold launch with deep link (Linux / Windows pass URL in argv)
+  const url = findProtocolUrl(process.argv)
+  if (url) applyDeepLink(url)
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+// macOS delivers deep links via open-url (app may already be running)
+app.on('open-url', (_event, url) => {
+  applyDeepLink(url)
 })
 
 app.on('window-all-closed', () => {

@@ -9,6 +9,11 @@ files:
   - node_modules/**/*
   - package.json
 
+protocols:
+  - name: Odoo To-Do Setup
+    schemes:
+      - odootodo
+
 linux:
   target:
     - target: AppImage
@@ -16,6 +21,8 @@ linux:
     - target: deb
       arch: [x64]
   category: Utility
+  mimeTypes:
+    - x-scheme-handler/odootodo
 
 win:
   target: nsis
