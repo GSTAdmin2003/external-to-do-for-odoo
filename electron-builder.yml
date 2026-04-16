@@ -1,0 +1,21 @@
+appId: com.odootodo.app
+productName: Odoo Todo
+directories:
+  buildResources: resources
+  output: dist
+
+files:
+  - out/**/*
+  - node_modules/**/*
+  - package.json
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  category: Utility
+
+win:
+  target: nsis
