@@ -5,9 +5,13 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -30,14 +34,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build & package
+      - name: Build & package (Linux)
+        if: matrix.platform == 'linux'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --${{ matrix.platform }} --publish always
+        run: npx electron-builder --linux --publish always
 
-  update-odoo-addon:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger Odoo addon sync (optional webhook)
-        run: echo "Release ${{ github.ref_name }} published — update Odoo addon manually if needed."
+      - name: Build & package (Windows)
+        if: matrix.platform == 'win'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish always
+
+      - name: Build & package (macOS)
+        if: matrix.platform == 'mac'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npx electron-builder --mac --publish always
